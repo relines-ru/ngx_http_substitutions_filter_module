@@ -59,6 +59,7 @@ typedef struct {
     ngx_array_t   *bypass;      /* array of ngx_http_complex_value_t */
     size_t         line_buffer_size;
     ngx_bufs_t     bufs;
+    ngx_flag_t     keep_last_modified; /* subs_filter_last_modified */
 } ngx_http_subs_loc_conf_t;
 
 
@@ -170,6 +171,13 @@ static ngx_command_t  ngx_http_subs_filter_commands[] = {
       offsetof(ngx_http_subs_loc_conf_t, bufs),
       NULL },
 
+    { ngx_string("subs_filter_last_modified"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_subs_loc_conf_t, keep_last_modified),
+      NULL },
+
     ngx_null_command
 };
 
@@ -267,7 +275,9 @@ ngx_http_subs_header_filter(ngx_http_request_t *r)
 
     if (r == r->main) {
         ngx_http_clear_content_length(r);
-        ngx_http_clear_last_modified(r);
+        if (!slcf->keep_last_modified) {
+            ngx_http_clear_last_modified(r);
+        }
     }
 
     return ngx_http_next_header_filter(r);
@@ -1288,6 +1298,7 @@ ngx_http_subs_create_conf(ngx_conf_t *cf)
 
     conf->line_buffer_size = NGX_CONF_UNSET_SIZE;
     conf->bypass = NGX_CONF_UNSET_PTR;
+    conf->keep_last_modified = NGX_CONF_UNSET;
 
     return conf;
 }
@@ -1328,6 +1339,7 @@ ngx_http_subs_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_bufs_value(conf->bufs, prev->bufs,
                               (128 * 1024) / ngx_pagesize, ngx_pagesize);
 
+    ngx_conf_merge_value(conf->keep_last_modified, prev->keep_last_modified, 0);
     return NGX_CONF_OK;
 }
 
